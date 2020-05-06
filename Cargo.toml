@@ -1,0 +1,28 @@
+[package]
+name = "mumblerpc"
+version = "0.1.0"
+authors = ["Zoey <Dessix@Dessix.net>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ctor = "0.1.14"
+mumble-sys = { path = "../mumble-sys" }
+libc = "^0.2.69"
+lazy_static = "1.4.0"
+c_str_macro = "1.0.2"
+mut_static = "5.0.0"
+
+
+[build-dependencies]
+bindgen = "~0.53.2"
+const-concat = { git = "https://github.com/reesmanp/const-concat" }
+
+[features]
+default = []
+
+idebuild = []
