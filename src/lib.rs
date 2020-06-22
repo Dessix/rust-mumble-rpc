@@ -35,8 +35,9 @@ impl mumble_sys::traits::MumblePlugin for MumbleRPC {
         let user_in_conn = api.get_local_user_id(conn);
         println!("Hello from connection {} as user {}", conn, user);
     println!(
-        "User {}{} in connection {} talking state is now {}",
+        "User {}({}){} in connection {} talking state is now {}",
         user,
+        api.get_user_name(conn, user),
         if user == user_in_conn && conn == active_conn { " (you)" } else { "" },
         conn,
         talking_state);
@@ -57,6 +58,7 @@ fn register_plugin(token: mumble_sys::RegistrationToken) {
         "Dessix",
         "A remote procedure call system for Mumble interop with other programs",
         m::Version { major: 1, minor: 0, patch: 0 },
+        m::Version { major: 0, minor: 1, patch: 1 },
         Box::new(rpc),
         None,
         token,
