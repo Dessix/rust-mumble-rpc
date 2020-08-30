@@ -17,11 +17,6 @@ lazy_static = "1.4.0"
 c_str_macro = "1.0.2"
 mut_static = "5.0.0"
 
-
-[build-dependencies]
-bindgen = "~0.53.2"
-const-concat = { git = "https://github.com/reesmanp/const-concat" }
-
 [features]
 default = []
 
