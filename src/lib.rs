@@ -2,64 +2,27 @@
 #![feature(const_fn)]
 #![feature(maybe_uninit_ref)]
 
-#[macro_use]
-extern crate ctor;
 extern crate mumble_sys;
 use mumble_sys::types as m;
+use mumble_sys::types::UserIdT;
 
 struct MumbleRPC {
-    api: Option<mumble_sys::MumbleAPI>,
+    api: mumble_sys::MumbleAPI,
 }
 
 impl mumble_sys::traits::MumblePlugin for MumbleRPC {
-    fn init(&mut self) -> m::Mumble_ErrorCode {
-        println!("It's alive!");
-        m::Mumble_ErrorCode::EC_OK
-    }
-
-    fn shutdown(&mut self) {
+    fn shutdown(&self) {
         println!("It's dead, Jim!");
-    }
-
-    fn set_api(&mut self, api: mumble_sys::MumbleAPI) {
-        self.api = Some(api);
-    }
-
-    fn on_user_talking_state_changed(
-        &mut self,
-        conn: m::mumble_connection_t,
-        user: m::mumble_userid_t,
-        talking_state: m::talking_state_t,
-    ) {
-        let api = self.api.as_mut().unwrap();
-        if !api.is_connection_synchronized(conn) { return; }
-        let local_user = api.get_local_user_id(conn).unwrap();
-        println!(
-            "User #{:?} {}({}){} in connection {:?} talking state is now {:?}",
-            user,
-            api.get_user_name(conn, user).unwrap(),
-            api.get_user_hash(conn, user).unwrap(),
-            if user == local_user { " (you)" } else { "" },
-            conn,
-            talking_state
-        );
-    }
-
-    fn on_channel_added(&mut self, conn: m::mumble_connection_t, channel: m::mumble_channelid_t) {
-        let api = self.api.as_mut().unwrap();
-        if !api.is_connection_synchronized(conn) { return; }
-        let channel_name = api.get_channel_name(conn, channel).unwrap();
-        println!("Channel added {:?}:{:?} : {}", conn, channel, channel_name);
     }
 
     fn on_channel_entered(
         &mut self,
-        conn: m::mumble_connection_t,
-        user: m::mumble_userid_t,
-        previous: Option<m::mumble_channelid_t>,
-        current: Option<m::mumble_channelid_t>,
+        conn: m::ConnectionT,
+        user: m::UserIdT,
+        previous: Option<m::ChannelIdT>,
+        current: Option<m::ChannelIdT>,
     ) {
-        let api = self.api.as_mut().unwrap();
+        let api = &mut self.api;
         if !api.is_connection_synchronized(conn) { return; }
         let previous_channel_name = previous
             .map(|c| api.get_channel_name(conn, c).unwrap())
@@ -81,31 +44,89 @@ impl mumble_sys::traits::MumblePlugin for MumbleRPC {
             user_name, user_hash, channel_name, previous_channel_name, server_hash
         );
     }
+
+    fn on_user_talking_state_changed(
+        &mut self,
+        conn: m::ConnectionT,
+        user: m::UserIdT,
+        talking_state: m::TalkingStateT,
+    ) {
+        let api = &mut self.api;
+        if !api.is_connection_synchronized(conn) { return; }
+        let local_user = api.get_local_user_id(conn).unwrap();
+        println!(
+            "User #{:?} {}({}){} in connection {:?} talking state is now {:?}",
+            user,
+            api.get_user_name(conn, user).unwrap(),
+            api.get_user_hash(conn, user).unwrap(),
+            if user == local_user { " (you)" } else { "" },
+            conn,
+            talking_state
+        );
+    }
+
+    fn on_audio_source_fetched(
+        &mut self,
+        pcm: &mut [f32],
+        sample_count: u32,
+        channel_count: u16,
+        sample_rate: u32,
+        is_speech: bool,
+        user_id: Option<UserIdT>,
+    ) -> bool {
+        if !is_speech {
+            return false;
+        }
+        let user_id = user_id.unwrap();
+        println!(
+            "Received speech with {} samples ({}hz) in {} channels from user {:?}",
+            sample_count,
+            sample_rate,
+            channel_count,
+            user_id
+        );
+        false
+    }
+
+    fn on_channel_added(&mut self, conn: m::ConnectionT, channel: m::ChannelIdT) {
+        let api = &mut self.api;
+        if !api.is_connection_synchronized(conn) { return; }
+        let channel_name = api.get_channel_name(conn, channel).unwrap();
+        println!("Channel added {:?}:{:?} : {}", conn, channel, channel_name);
+    }
 }
 
-#[ctor]
-fn set_registration_callback() {
-    mumble_sys::set_registration_callback(Box::new(register_plugin))
+impl mumble_sys::traits::MumblePluginDescriptor for MumbleRPC {
+    fn name() -> &'static str {
+        println!("Name requested");
+        "MumbleRPC"
+    }
+
+    fn author() -> &'static str {
+        println!("Author requested");
+        "Dessix"
+    }
+
+    fn description() -> &'static str {
+        println!("Description requested");
+        "A remote procedure call system for Mumble interop with other programs"
+    }
+
+    fn version() -> m::Version {
+        println!("Version requested");
+        m::Version { major: 0, minor: 0, patch: 1 }
+    }
+
+    fn api_version() -> m::Version {
+        println!("APIVersion requested");
+        m::Version { major: 1, minor: 0, patch: 0 }
+    }
+
+    fn init(id: m::PluginId, api: m::MumbleAPI) -> Result<Self, m::ErrorT> {
+        println!("It's alive!");
+        Ok(MumbleRPC { api: mumble_sys::MumbleAPI::new(id, api) })
+    }
+
 }
 
-fn register_plugin(token: mumble_sys::RegistrationToken) {
-    let rpc = MumbleRPC { api: None };
-    mumble_sys::register_plugin(
-        "MumbleRPC",
-        "Dessix",
-        "A remote procedure call system for Mumble interop with other programs",
-        m::Version {
-            major: 1,
-            minor: 0,
-            patch: 0,
-        },
-        m::Version {
-            major: 0,
-            minor: 1,
-            patch: 1,
-        },
-        Box::new(rpc),
-        None,
-        token,
-    );
-}
+mumble_sys::register_mumble_plugin!(MumbleRPC);

@@ -10,7 +10,6 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-ctor = "0.1.14"
 mumble-sys = { path = "../mumble-sys" }
 libc = "^0.2.69"
 lazy_static = "1.4.0"
